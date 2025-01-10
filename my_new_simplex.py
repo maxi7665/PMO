@@ -15,6 +15,8 @@ def get_mark(matrix, function, basis):  # вычисление оценки
     for i in basis:
         c_basis.append(function[i - 1])
     mark = np.dot(c_basis, matrix) - (np.append([0], function))
+    print(mark)
+    print('-----------------')
     return mark
 
 
@@ -39,6 +41,8 @@ def recount(matrix_in, index_input, index_output):  # пересчет март�
     for i in range(len(matrix)):
         if i != index_output:
             matrix[i] -= matrix[i][index_input] * matrix[index_output]
+    print(matrix)
+    print('-----------------')
     return matrix
 
 
@@ -64,6 +68,8 @@ def get_index_output(index_input, matrix_in):
 
 
 def solve(matrix, function, basis):
+    print(matrix)
+    print("-----------------")
     mark = get_mark(matrix, function, basis)
     flag = continue_solve(mark)
 
@@ -81,60 +87,22 @@ def solve(matrix, function, basis):
 
     return matrix, function, basis
 
-# канонизация (приведение к общему виду)
+
 def canonization(a, b, c):
     matrix = np.copy(a)
     vector = np.copy(b)
     function = np.copy(c * -1)
 
     matrix = np.concatenate((vector.T, matrix), axis=1)
-
-    # добавление дополнительных переменных
     matrix, function = add_additional_variables(matrix, function)
     basis = get_basis(matrix)
 
     return matrix, function, basis
 
 
-def get_interval(matrix_in, function_in, basis_in, mark_in):
-    matrix = np.copy(matrix_in)
-    function = np.copy(function_in)
-    basis = np.copy(basis_in)
-    mark = np.copy(mark_in)
-
-    result = mark[0] * -1
-    print("результат = " + str(result))
-
-    for i in range(len(C)):
-        interval = []
-        function_edit = function
-        interval.append(function_edit[i])
-        print("Значение " + str(i) + " значения = " + str(function_edit[i]))
-        count = 0
-        while not continue_solve(mark):
-            count += 1
-            function_edit[i] += 0.001
-            mark = get_mark(matrix, function_edit, basis)
-            if count > 10000:
-                print("Изменения не влияют на оптимальное решение")
-                break
-        print("Значение после изменения: " + str(count) + " циклов " + str(function_edit[i]))
-        interval.append(function_edit[i])
-        matrix, function_edit, basis = solve(matrix, function_edit, basis)
-        mark = get_mark(matrix, function_edit, basis)
-        print("целевая функция")
-        print(function_edit)
-        print("результат после изменения: " + str(mark[0] * -1))
-        print("Наш интервал: ", interval)
-        print("-----------------------------------------------------")
-
-
-def simplex_method(matrix, function, basis, analysis):
+def simplex_method(matrix, function, basis):
     matrix, function, basis = solve(matrix, function, basis)
     mark = get_mark(matrix, function, basis)
-
-    if analysis:
-        get_interval(matrix, function, basis, mark)
 
     p_0 = matrix[:, 0]
 
@@ -147,31 +115,23 @@ def simplex_method(matrix, function, basis, analysis):
     print("x = " + str(x))
     print("result = " + str(mark[0] * -1))
 
-# вариант №4
-# x_1+3x_2→max
-# 3x_1+2x_2≥10
-# -x_1+4x_2≤20
-# x_1+2x_2≤16
-# -x_1+3x_2≥4
-# x_1,x_2≥0
-
 
 A = np.array([[6, 4, 2],
               [2, 3, 6]], dtype=float)
 B = np.array([[68, 60]], dtype=float)
-C = np.array([18, 5, 30], dtype=float)
+C = np.array([10, 15, 15])
 
 # A = np.array([[1, -2],
 #               [1, -1]], dtype=np.float)
 # B = np.array([[1, 1]], dtype=np.float)
-# C = np.array([1, 4], dtype=np.float)
+# C = np.array([1, 4])
 
 
 # A = np.array([[-1, 1],
 #               [0, 1],
 #               [1, 0]], dtype=np.float)
 # B = np.array([[2, 1, 3]], dtype=np.float)
-# C = np.array([6, 10], dtype=np.float)
+# C = np.array([6, 10])
 
 mat, fun, bas = canonization(A, B, C)
-simplex_method(mat, fun, bas, True)
+simplex_method(mat, fun, bas)
