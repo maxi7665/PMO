@@ -164,5 +164,4 @@ for dest in range(2, vertex_num + 1):
     way = d[src][dest];
     route = routes[(src, dest)] if (src, dest) in routes else [];
     
-    [way, route] = dijkstra(paths, src, dest);
     print("Из " + str(src) + " в " + str(dest) + ": длина " + str(way) + ", маршрут " + str(route));
