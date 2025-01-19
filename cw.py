@@ -242,6 +242,13 @@ def solve(paths, stocks, needs):
 
     stage = 1;
 
+    # начальный граф
+    draw_graph(
+        paths, 
+        stocks, 
+        needs, 
+        name = f"Начальный_граф");
+
     # начальное допустимое опорное решение 
     # методом северо-западного угла
     moves = north_west(
@@ -255,7 +262,7 @@ def solve(paths, stocks, needs):
         stocks, 
         needs, 
         moves,  
-        name = f"Начальный_граф");
+        name = f"Начальный_граф_с_опорным");
 
     while (1):
 
@@ -315,9 +322,9 @@ def solve(paths, stocks, needs):
 # отрисовка графа
 def draw_graph(
     paths, # пути от поставщиков к потребителям
-    stocks = [], # запасы
-    needs = [], # потребности
-    moves = [], # движения ресурсов
+    stocks = np.array([]), # запасы
+    needs = np.array([]), # потребности
+    moves = np.array([]), # движения ресурсов
     potentials = [{},{}], # расчитанные потенциалы
     name = "graph"
     ):
@@ -387,16 +394,6 @@ paths = np.array(
     [11,  5,  4,  2], #A1
     [ 1,  4,  5,  9], #A2
     [ 9,  8,  7, 10], #A3
-    ], 
-    dtype = float);
-
-# опорный план отрузок от поставщиков к потребителям
-shipments = np.array(
-    # B1   B2   B3   B4
-    [
-    [  0,   0,   0,  80], #A1
-    [ 70,  60,  40,   0], #A2
-    [  0,   0, 140,  10], #A3
     ], 
     dtype = float);
 

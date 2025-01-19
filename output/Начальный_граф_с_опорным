@@ -19,4 +19,10 @@ digraph {
 	A3 -> B2 [label=8 dir=none]
 	A3 -> B3 [label=7 dir=none]
 	A3 -> B4 [label=10 dir=none]
+	A1 -> B1 [label=70 color=green fontcolor=red]
+	A1 -> B2 [label=10 color=green fontcolor=red]
+	A2 -> B2 [label=50 color=green fontcolor=red]
+	A2 -> B3 [label=120 color=green fontcolor=red]
+	A3 -> B3 [label=60 color=green fontcolor=red]
+	A3 -> B4 [label=90 color=green fontcolor=red]
 }
