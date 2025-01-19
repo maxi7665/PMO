@@ -1,6 +1,4 @@
 import numpy as np;
-import networkx as nx;
-import matplotlib.pyplot as plt;
 import graphviz as gv;
 import subprocess;
 
@@ -38,8 +36,6 @@ def north_west(paths, stocks, needs):
                 break;
         
             break;
-    
-        # print(moves);
 
     return moves;
 
@@ -53,9 +49,6 @@ def get_potentials(paths, moves):
     # кол-во u и v
     u_num = paths.shape[0];
     v_num = paths.shape[1];
-
-    # [prod, cons] = moves[0];
-    # path = paths[prod][cons];
 
     # для первого производителя (вершины) 
     # берем потенциал = 100
@@ -81,11 +74,242 @@ def get_potentials(paths, moves):
     v = dict(sorted(v.items()));    
     
     return [u,v];
+
+def find_edges_scores(paths, moves, potentials):
+
+    [u,v] = potentials;
+
+    edges_scores = {};
+
+    # для ребер у которых нет стрелок считаем характеристику
+    for prod in range(paths.shape[0]):
+        for cons in range(paths.shape[1]):
+
+            path = paths[prod][cons];
+            move = moves[prod][cons];
+
+            if (move > 0): continue;
+
+            diff = u[prod] - v[cons];
+            if diff < 0: diff = -1 * diff;
+            score = path - diff;
+
+            edges_scores[(prod, cons)] = float(score);
+
+    min_score = (min(edges_scores.values()) 
+        if len(edges_scores.values()) > 0
+        else 0);
+    min_edge = (-1, -1);
+
+    for key, value in edges_scores.items():
+        if value == min_score:
+            min_edge = key;
+            break;
+
+    return [edges_scores, min_edge, min_score];
+
+# поиск пути в графе
+def find_path(
+    moves, 
+    source,  
+    dest = -1,
+    source_is_cons = False, 
+    dest_is_cons = False,
+    path = [],
+    visited = set()):
+
+    if (dest == -1): dest = source;
+
+    localpath = path.copy();
+    localpath.append(source);
+
+    if (source_is_cons):
+        for i in range(moves.shape[0]):
+            if (moves[i][source] > 0
+                and (i, source) not in visited):     
+                prod = i;     
+
+                # конец рекурсии - нашли конечную
+                if (prod == dest 
+                    and dest_is_cons == False):
+                    localpath.append(prod);
+                    return localpath;
+
+                localvisited = visited.copy();
+                localvisited.add((prod, source));            
+
+                retpath = find_path(
+                    moves, 
+                    prod, 
+                    dest, 
+                    False, 
+                    dest_is_cons, 
+                    localpath,
+                    localvisited);
+
+                if (len(retpath)):
+                    return retpath;
+        
+    else:
+        for j in range(moves.shape[1]):
+            if (moves[source][j] > 0
+                and (source, j) not in visited):     
+                cons = j;     
+
+                # конец рекурсии - нашли конечную
+                if (cons == dest 
+                    and dest_is_cons == True):
+                    localpath.append(cons);
+                    return localpath;
+
+                localvisited = visited.copy();
+                localvisited.add((source, j));
+
+                retpath = find_path(
+                    moves, 
+                    cons, 
+                    dest, 
+                    True, 
+                    dest_is_cons, 
+                    localpath,
+                    localvisited);
+
+                if (len(retpath)):
+                    return retpath;            
+
+    # пустой список - через эту вершину цикл найти не удалось
+    return [];
+
+
+
+# переместить ребро
+def move_edge(paths, moves, min_edge):
+
+    # новая матрица перемещений
+    m = moves.copy();
+
+    (min_edge_prod, min_edge_cons) = min_edge;
+
+    # поиск замкнутого цикла для добавляемого ребра
+    cycle = find_path(
+        moves, 
+        min_edge_cons, 
+        min_edge_prod, 
+        True);
+
+    print("Найденный цикл, начиная с поставщика:");
+    print(cycle);
+
+    min_value = float("inf");
+    new_min_edge = (-1,-1);
+
+    # определяем минимальное противоположное ребро
+    for i in range(len(cycle) - 1):
+        # интересуют только стрелки из потребителей, 
+        # по направлению противоположные
+        if (i % 2 == 0):
+            (cons, prod) = (cycle[i], cycle[i+1]);
+
+            if moves[prod][cons] < min_value:
+                new_min_edge = (prod, cons);
+                min_value = moves[prod][cons];
+
+    if (new_min_edge == (-1,-1)): raise Exception("Can't found min move");
+
+    print(f"Минимальная противоположная поставка {min_value} для ребра {new_min_edge}");    
+
+    # определяем новое распределение поставок
+    for i in range(len(cycle) - 1):
+        
+        # вычитаем из противоположных ребер
+        # добавляем к попутным
+        if (i % 2 == 0):
+            (cons, prod) = (cycle[i], cycle[i+1]);
+            m[prod][cons] = m[prod][cons] - min_value;
+        else:
+            (prod, cons) = (cycle[i], cycle[i+1]);
+            m[prod][cons] = m[prod][cons] + min_value;
+
+
+    # новое ребро - перемещение
+    m[min_edge_prod][min_edge_cons] = min_value;
+
+    return m;   
         
 
+# решение транспортной задачи
+def solve(paths, stocks, needs):
+
+    stage = 1;
+
+    # начальное допустимое опорное решение 
+    # методом северо-западного угла
+    moves = north_west(
+        paths, 
+        stocks, 
+        needs);
+
+    # начальный граф
+    draw_graph(
+        paths, 
+        stocks, 
+        needs, 
+        moves,  
+        name = f"Начальный_граф");
+
+    while (1):
+
+        # поиск потенциалов узлов
+        [u, v] = get_potentials(paths, moves);
+
+        print("Потенциалы поставщиков");
+        print(u);
+
+        print("Потенциалы потребителей");
+        print(v);
+
+        # поиск оценок ребер без перемещений
+        [edges_scores, 
+        min_edge, 
+        min_score] = find_edges_scores(paths, moves, [u, v]);
+
+        print("Оценки ребер без перемещений");
+        print(edges_scores);
+
+        # если среди ребер без перемещений
+        # есть отрицательные характеристики, 
+        # надо сдвинуть план
+        if (min_score < 0):
+            print(f"Найдена отрицательная хар-ка {min_score} у ребра {min_edge}");
+            moves = move_edge(paths, moves, min_edge);
 
 
+        # отрисовка графа на текущем шаге
+        draw_graph(
+            paths, 
+            stocks, 
+            needs, 
+            moves, 
+            [u, v], 
+            f"Шаг_{stage}");
 
+        # не нашлось отрицательных характеристик
+        # план оптимален, выход
+        if (min_score >= 0):
+            break;
+
+        stage = stage + 1;
+
+    # найдено оптимальное решение, 
+    # считаем минимизированное значение
+    sum = 0;
+
+    for i in range(paths.shape[0]):
+        for j in range(paths.shape[1]):
+            if (moves[i][j]):
+                sum += moves[i][j] * paths[i][j];
+
+    print(f"Найдено оптимальное решение z={sum}");
 
 
 # отрисовка графа
@@ -94,16 +318,13 @@ def draw_graph(
     stocks = [], # запасы
     needs = [], # потребности
     moves = [], # движения ресурсов
-    potentials = [{},{}] # расчитанные потенциалы
+    potentials = [{},{}], # расчитанные потенциалы
+    name = "graph"
     ):
 
-    # G = nx.Graph();
     dot = gv.Digraph(engine="circo");
 
-
     nodes = set();
-    edges = [];
-    labels = dict();
 
     [u,v] = potentials;
 
@@ -153,29 +374,9 @@ def draw_graph(
     # dot.graph_attr['ratio'] = "compress";
     dot.graph_attr['size'] = "1920,1080";
 
-    print(dot.source);
-    file = dot.render('doctest-output/round-table.gv').replace('\\', '/');
+    # print(dot.source);
+    file = dot.render(f'output/{name}').replace('\\', '/');
     subprocess.run(["cmd", f"/c start {file}"]);
-    
-    
-    # G.add_edges_from(edges);
-
-    # pos = nx.spring_layout(G)
-
-    # nx.draw(G, pos, with_labels=True);
-    # nx.draw_networkx_edge_labels(G, pos, edge_labels=labels);
-
-    # plt.show();
-    #plt.show();
-
-    # G = nx.petersen_graph()
-    # subax1 = plt.subplot(121)
-    # nx.draw(G, with_labels=True, font_weight='bold')
-    # subax2 = plt.subplot(122)
-    # nx.draw_shell(G, nlist=[range(5, 10), range(5)], with_labels=True, font_weight='bold')
-
-
-
 
 stocks = [80, 170, 150]; # запасы
 needs = [70, 60, 180, 90]; # потребности
@@ -199,18 +400,4 @@ shipments = np.array(
     ], 
     dtype = float);
 
-moves = north_west(paths, stocks, needs);
-
-print(moves);
-
-[u, v] = get_potentials(paths, moves);
-
-print("Потенциалы поставщиков");
-print(u);
-
-print("Потенциалы потребителей");
-print(v);
-
-# exit();
-
-draw_graph(paths, stocks, needs, moves, [u, v]);
+solve(paths, stocks, needs);
